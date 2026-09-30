@@ -2,6 +2,7 @@ module
 
 public import RequestProject.Q3mod4.Transport
 public import RequestProject.Q3mod4.Counterexamples
+public import RequestProject.Q3mod4.Tournament
 public import RequestProject.Q3mod4.P43
 public import RequestProject.Q3mod4.P47
 public import RequestProject.Q3mod4.P59
