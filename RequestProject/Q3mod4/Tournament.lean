@@ -1,15 +1,16 @@
 module
 
-public import RequestProject.Core
+public import RequestProject.Q3mod4.PairSearch
 
 /-!
 # The directed Paley-tournament reduction
 
 For `q ≡ 3 (mod 4)`, negation reverses quadratic character.  Thus a good pairing
 induces a permutation of the non-zero squares by `s ↦ -ψ s`.  This file records the
-exact two-sign decomposition supplied by the `GoodPairing.pair` axiom.  It isolates
-the additional local-orientation assertion needed for a directed-Paley approach;
-that assertion is not implied by `GoodPairing` alone.
+exact two-sign decomposition supplied by the `GoodPairing.pair` axiom.  A linear
+pairing reverses every induced tournament orientation.  Showing that every good
+pairing has this uniform reversal is the missing directed-Paley rigidity statement;
+it is not implied by `GoodPairing` alone for small fields.
 -/
 
 @[expose] public section
@@ -112,8 +113,7 @@ lemma local_orientation_iff_direct_nonsquare (hq : Fintype.card F % 4 = 3) (ψ :
     simpa using congrArg Neg.neg h
 
 /-- For a good pairing, the cross-factor square branch is equivalent to local orientation
-preservation.  Proving that this branch always occurs is the missing directed-Paley rigidity
-step; it is not a consequence of the current `GoodPairing` axioms. -/
+preservation. -/
 lemma local_orientation_iff_cross_square (hq : Fintype.card F % 4 = 3) (hψ : GoodPairing ψ)
     {s t : F} (hs : quadraticChar F s = 1) (ht : quadraticChar F t = 1) (hst : s ≠ t) :
     quadraticChar F ((s - t) * (tournamentMap ψ s - tournamentMap ψ t)) = 1 ↔
@@ -130,6 +130,87 @@ lemma local_orientation_iff_cross_square (hq : Fintype.card F % 4 = 3) (hψ : Go
     rw [map_mul, hcross] at h
     norm_num at h ⊢
     exact h
+
+/-- Local orientation reversal is exactly the branch where the direct factor is a square. -/
+lemma local_orientation_reverse_iff_direct_square (hq : Fintype.card F % 4 = 3) (ψ : F → F)
+    (s t : F) :
+    quadraticChar F ((s - t) * (tournamentMap ψ s - tournamentMap ψ t)) = -1 ↔
+      quadraticChar F (directFactor ψ s t) = 1 := by
+  rw [directFactor_eq_neg_orientationProduct, quadraticChar_neg_of_card_mod_four_eq_three hq]
+  constructor
+  · intro h
+    rw [h]
+    norm_num
+  · intro h
+    simpa using congrArg Neg.neg h
+
+/-- For a good pairing, the cross-factor nonsquare branch is equivalent to local orientation
+reversal.  Proving that this branch always occurs for `q > 31` is the missing directed-Paley
+rigidity step. -/
+lemma local_orientation_reverse_iff_cross_nonsquare (hq : Fintype.card F % 4 = 3)
+    (hψ : GoodPairing ψ) {s t : F} (hs : quadraticChar F s = 1)
+    (ht : quadraticChar F t = 1) (hst : s ≠ t) :
+    quadraticChar F ((s - t) * (tournamentMap ψ s - tournamentMap ψ t)) = -1 ↔
+      quadraticChar F (crossFactor ψ s t) = -1 := by
+  rw [local_orientation_reverse_iff_direct_square hq]
+  constructor
+  · intro hdirect
+    have h := hψ.direct_cross_nonsquare hs ht hst
+    rw [map_mul, hdirect] at h
+    norm_num at h ⊢
+    exact h
+  · intro hcross
+    have h := hψ.direct_cross_nonsquare hs ht hst
+    rw [map_mul, hcross] at h
+    norm_num at h ⊢
+    exact h
+
+/-- The map induced by a linear pairing reverses every local tournament orientation. -/
+lemma tournamentMap_reverses_of_div (hq : Fintype.card F % 4 = 3) {ψ : F → F} {n s t : F}
+    (hn : quadraticChar F n = -1) (hs : quadraticChar F s = 1)
+    (ht : quadraticChar F t = 1) (hst : s ≠ t) (hψs : ψ s = n / s) (hψt : ψ t = n / t) :
+    quadraticChar F ((s - t) * (tournamentMap ψ s - tournamentMap ψ t)) = -1 := by
+  have hs0 : s ≠ 0 := by
+    intro h
+    rw [h, quadraticChar_zero] at hs
+    norm_num at hs
+  have ht0 : t ≠ 0 := by
+    intro h
+    rw [h, quadraticChar_zero] at ht
+    norm_num at ht
+  have hst0 : s - t ≠ 0 := sub_ne_zero.mpr hst
+  simp only [tournamentMap, hψs, hψt]
+  rw [show (s - t) * (-(n / s) - -(n / t)) = n * (s - t) ^ 2 / (s * t) by
+    field_simp
+    ring]
+  rw [quadraticChar_div _ (mul_ne_zero hs0 ht0), map_mul, map_mul, map_mul,
+    quadraticChar_sq_one' hst0, hn, hs, ht]
+  norm_num
+
+/-- Classifying the induced tournament map as a reciprocal scaling is sufficient for linearity of
+the good pairing.  This is the finite-field classification step required after uniform orientation
+reversal. -/
+lemma linear_of_tournamentMap_inv (hψ : GoodPairing ψ) (c : F)
+    (hmap : ∀ s : F, s ≠ 0 → IsSquare s → tournamentMap ψ s = c / s) :
+    ∃ n : F, quadraticChar F n = -1 ∧ ∀ x, x ≠ 0 → ψ x = n / x := by
+  apply hψ.linear_of_prod
+  intro s t hs0 hss ht0 htss
+  have hsmap := hmap s hs0 hss
+  have htmap := hmap t ht0 htss
+  have hψs : ψ s = -c / s := by
+    rw [tournamentMap] at hsmap
+    calc
+      ψ s = -(-ψ s) := by ring
+      _ = -(c / s) := by rw [hsmap]
+      _ = -c / s := by ring
+  have hψt : ψ t = -c / t := by
+    rw [tournamentMap] at htmap
+    calc
+      ψ t = -(-ψ t) := by ring
+      _ = -(c / t) := by rw [htmap]
+      _ = -c / t := by ring
+  rw [hψs, hψt]
+  field_simp
 
 end GoodPairing
 
